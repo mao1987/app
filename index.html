@@ -81,7 +81,7 @@ h2.pg{font-family:Georgia,serif;font-size:24px;margin-bottom:14px}
 .dot{width:11px;height:11px;border-radius:50%;display:inline-block;margin-right:5px}
 
 /* requests */
-.reqform{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:16px}
+.reqcreate{border:1.5px dashed var(--terra);border-radius:14px;padding:14px 16px;margin-top:18px;background:rgba(196,99,63,.04)}
 
 /* news */
 .news{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:14px}
@@ -309,19 +309,26 @@ function renderMap(){
 function highlight(id){hl=id}
 
 /* ================= ЗАПРОСЫ «ИЩУ» ================= */
+let rq='';
 function renderReq(){
   const mine=S.requests.filter(r=>r.user===S.me);
-  const others=S.requests.filter(r=>r.user!==S.me);
+  let others=S.requests.filter(r=>r.user!==S.me);
+  if(rq)others=others.filter(r=>r.text.toLowerCase().includes(rq.toLowerCase()));
   document.getElementById('pageReq').innerHTML=`
     <h2 class="pg">Запросы «Ищу книгу»</h2>
-    <div class="reqform">
-      <h3>Оставить заявку</h3>
-      <input id="reqText" placeholder="Например: ищу «Плаху» Айтматова, хорошее состояние">
-      <button class="btn btn-terra" onclick="addReq()">Опубликовать</button>
-    </div>
-    ${others.length?'<h3 style="margin-bottom:10px">Запросы участников</h3>'+others.map(r=>`
+    <div class="searchbar"><input id="rq" placeholder="Поиск по запросам участников…" value="${rq.replace(/"/g,'&quot;')}" oninput="rq=this.value;renderReq();setTimeout(()=>document.getElementById('rq').focus(),0)"></div>
+    ${others.length?others.map(r=>`
       <div class="card"><div class="row"><h3>${uname(r.user)} <span class="muted small">· ${r.date}</span></h3></div>
-      <p>${r.text}</p><div class="rowbt"><button class="btn btn-ghost btn-sm" onclick="openChat('${r.user}')">Написать</button></div></div>`).join(''):'<div class="empty">Пока никто ничего не ищет.</div>'}
+      <p>${r.text}</p><div class="rowbt"><button class="btn btn-ghost btn-sm" onclick="openChat('${r.user}')">Написать</button></div></div>`).join('')
+      :'<div class="empty">По этому фильтру запросов нет. Может, вы будете первым?</div>'}
+    <div class="reqcreate">
+      <p style="font-size:14.5px;margin-bottom:8px"><b>Не нашли нужную книгу?</b> Опишите её — участники увидят запрос и откликнутся.</p>
+      <button class="btn btn-terra" onclick="document.getElementById('newReq').classList.toggle('open')">+ Создать запрос</button>
+      <div class="frm" id="newReq">
+        <input id="reqText" placeholder="Например: ищу «Плаху» Айтматова, хорошее состояние">
+        <button class="btn btn-terra" style="width:100%" onclick="addReq()">Опубликовать</button>
+      </div>
+    </div>
     ${mine.length?'<h3 style="margin:18px 0 10px">Мои запросы</h3>'+mine.map(r=>`
       <div class="card"><div class="row"><p>${r.text}</p><button class="btn btn-ghost btn-sm" onclick="delReq('${r.id}')">Удалить</button></div></div>`).join(''):''}
   `;
