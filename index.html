@@ -237,6 +237,7 @@ let q='',fStatus='all';
 function renderSearch(){
   expireReservations();
   const list=S.books.filter(b=>{
+    if(b.status==='passed')return false;
     const s=(b.title+' '+b.author).toLowerCase();
     if(q&&!s.includes(q.toLowerCase()))return false;
     if(fStatus==='free'&&b.status!=='free')return false;
@@ -296,7 +297,7 @@ function renderMap(){
   setTimeout(()=>map.invalidateSize(),50);
   Object.values(markers).forEach(m=>map.removeLayer(m)); markers={};
   Object.entries(PTS).forEach(([k,p])=>{
-    const bs=S.books.filter(b=>b.pt===k);
+    const bs=S.books.filter(b=>b.pt===k&&b.status!=='passed');
     const free=bs.filter(b=>b.status==='free').length;
     const color=free>0?'#3E7D5B':(bs.length?'#C98A2E':'#8B8378');
     const rows=bs.length?bs.map(b=>`<div style="margin:4px 0"><b>${b.title}</b> · ${b.author}<br><span class="badge ${b.status==='free'?'b-free':'b-res'}">${b.status==='free'?'свободна':'забронирована'}</span> ${b.status==='free'&&b.owner!==S.me?`<button class="btn btn-terra btn-sm" style="margin-left:6px" onclick="reserve('${b.id}');renderMap()">Забронировать</button>`:''}</div>`).join(''):'<i>Пока пусто</i>';
@@ -434,8 +435,9 @@ function expireReservations(){
 
 /* ================= ПРОФИЛЬ ================= */
 function renderProfile(){
-  const myBooks=S.books.filter(b=>b.owner===S.me);
+  const myBooks=S.books.filter(b=>b.owner===S.me&&b.status!=='passed');
   const myRes=S.books.filter(b=>b.reservedBy===S.me&&b.status==='reserved');
+  const passed=S.books.filter(b=>b.owner===S.me&&b.status==='passed');
   document.getElementById('pageProfile').innerHTML=`
     <h2 class="pg">Профиль</h2>
     <div class="card"><div class="row"><div><h3>${me().name}</h3><div class="meta">${me().phone}</div></div>
@@ -449,13 +451,35 @@ function renderProfile(){
       <select id="bkP"><option value="ardaq">Кафе «Ардақ»</option><option value="lib">Библиотека им. Асафьева</option><option value="park">Парк 28 гвардейцев</option></select>
       <button class="btn btn-terra" style="width:100%" onclick="addBook()">Отдать в круговорот</button>
     </div>
-    ${myBooks.map(b=>`<div class="divider"></div><div class="row"><div><b>${b.title}</b> · ${b.author}<br><span class="meta">📍 ${PTS[b.pt].name} · ${b.status==='free'?'свободна':'забронирована: '+uname(b.reservedBy)}</span></div>
-      ${b.status==='reserved'?(b.accepted?`<span class="badge b-free">✅ бронь подтверждена</span>`:`<div class="rowbt"><button class="btn btn-green btn-sm" onclick="acceptRes('${b.id}')">Принять</button><button class="btn btn-ghost btn-sm" onclick="releaseRes('${b.id}',true)">Снять бронь</button></div>`):''}</div>`).join('')||'<div class="empty">Пока ни одной книги. Добавьте первую!</div>'}
+    ${myBooks.map(b=>`<div class="divider"></div>
+      <div class="row"><div><b>${b.title}</b> · ${b.author}<br><span class="meta">📍 ${PTS[b.pt].name} · ${b.status==='free'?'свободна':(b.accepted?'✅ бронь подтверждена: '+uname(b.reservedBy):'забронирована: '+uname(b.reservedBy))}</span></div>
+      <div class="rowbt" style="margin-top:0">
+        <button class="btn btn-ghost btn-sm" onclick="toggleEdit('${b.id}')">✏️</button>
+        ${b.status==='reserved'?(b.accepted?`<button class="btn btn-green btn-sm" onclick="passBook('${b.id}')">Книга передана</button>`:`<button class="btn btn-green btn-sm" onclick="acceptRes('${b.id}')">Принять</button><button class="btn btn-ghost btn-sm" onclick="releaseRes('${b.id}',true)">Снять бронь</button>`):''}
+      </div></div>
+      <div class="frm" id="edit_${b.id}">
+        <input id="ebT_${b.id}" value="${b.title.replace(/"/g,'&quot;')}" placeholder="Название">
+        <input id="ebA_${b.id}" value="${b.author.replace(/"/g,'&quot;')}" placeholder="Автор">
+        <select id="ebS_${b.id}">
+          <option ${b.state==='отличное'?'selected':''}>отличное</option>
+          <option ${b.state==='хорошее'?'selected':''}>хорошее</option>
+          <option ${b.state==='с потёртостями'?'selected':''}>с потёртостями</option>
+        </select>
+        <select id="ebP_${b.id}">
+          <option value="ardaq" ${b.pt==='ardaq'?'selected':''}>Кафе «Ардақ»</option>
+          <option value="lib" ${b.pt==='lib'?'selected':''}>Библиотека им. Асафьева</option>
+          <option value="park" ${b.pt==='park'?'selected':''}>Парк 28 гвардейцев</option>
+        </select>
+        <div class="rowbt"><button class="btn btn-terra" style="flex:1" onclick="saveBook('${b.id}')">Сохранить</button><button class="btn btn-ghost" onclick="delBook('${b.id}')">Удалить</button></div>
+      </div>`).join('')||'<div class="empty">Пока ни одной книги. Добавьте первую!</div>'}
     </div>
 
     ${myRes.length?`<div class="card"><h3>Мои брони</h3>
       ${myRes.map(b=>`<div class="divider"></div><div class="row"><div><b>${b.title}</b> · ${b.author}<br><span class="meta">📍 ${PTS[b.pt].name} · владелец: ${uname(b.owner)}</span></div>
       <button class="btn btn-ghost btn-sm" onclick="cancelRes('${b.id}')">Отменить</button></div>`).join('')}</div>`:''}
+
+    ${passed.length?`<div class="card"><h3>Передано читателям (${passed.length})</h3>
+      ${passed.map(b=>`<div class="divider"></div><div class="row"><div><b>${b.title}</b> · ${b.author}<br><span class="meta">книга ушла в круговорот 🔄</span></div></div>`).join('')}</div>`:''}
 
     <p class="hint" style="text-align:center;margin-top:24px"><button class="danger" onclick="if(confirm('Сбросить демо-данные?')){localStorage.removeItem('bookflow_v1');location.reload()}">Сбросить демо-данные</button></p>
   `;
@@ -465,6 +489,24 @@ function addBook(){
   if(!t||!a){alert('Укажите название и автора');return}
   S.books.push({id:uid(),title:t,author:a,state:document.getElementById('bkS').value,pt:document.getElementById('bkP').value,owner:S.me,status:'free'});
   save();renderProfile();
+}
+function toggleEdit(id){document.getElementById('edit_'+id).classList.toggle('open')}
+function saveBook(id){
+  const b=S.books.find(x=>x.id===id); if(!b)return;
+  const t=document.getElementById('ebT_'+id).value.trim(),a=document.getElementById('ebA_'+id).value.trim();
+  if(!t||!a){alert('Укажите название и автора');return}
+  b.title=t; b.author=a; b.state=document.getElementById('ebS_'+id).value; b.pt=document.getElementById('ebP_'+id).value;
+  save(); renderProfile();
+}
+function delBook(id){
+  if(!confirm('Удалить книгу из системы?'))return;
+  S.books=S.books.filter(x=>x.id!==id); save(); renderProfile();
+}
+function passBook(id){
+  const b=S.books.find(x=>x.id===id); if(!b)return;
+  chatWith(b.reservedBy,true,`Книга «${b.title}» передана. Приятного чтения! Не забудьте потом отпустить её в точку BookFlow 🙂`);
+  b.status='passed'; b.reservedBy=null; b.reservedAt=null; b.accepted=null; save();
+  renderProfile();
 }
 function acceptRes(id){
   const b=S.books.find(x=>x.id===id);
