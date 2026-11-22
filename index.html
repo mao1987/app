@@ -208,6 +208,8 @@ function enterApp(){
   document.getElementById('auth').style.display='none';
   document.getElementById('app').style.display='block';
   document.getElementById('whoami').innerHTML='<b>'+me().name+'</b><br>'+me().phone;
+  document.getElementById('whoami').innerHTML='<b>'+me().name+'</b><br>'+me().phone;
+  expireReservations();
   go('Search');
 }
 
@@ -230,6 +232,7 @@ function go(tab){
 /* ================= ПОИСК ================= */
 let q='',fStatus='all';
 function renderSearch(){
+  expireReservations();
   const list=S.books.filter(b=>{
     const s=(b.title+' '+b.author).toLowerCase();
     if(q&&!s.includes(q.toLowerCase()))return false;
@@ -267,7 +270,7 @@ function bookCard(b){
 }
 function reserve(id){
   const b=S.books.find(x=>x.id===id); if(!b)return;
-  b.status='reserved'; b.reservedBy=S.me; save();
+  b.status='reserved'; b.reservedBy=S.me; b.reservedAt=Date.now(); save();
   chatWith(b.owner,true,b.title+' — заявка на бронь');
   alert('Заявка отправлена! Владелец увидит её в профиле.'); go(cur==='Map'?'Map':'Search');
 }
@@ -382,6 +385,22 @@ function renderNews(){
 }
 
 /* ================= ПРОФИЛЬ ================= */
+function releaseRes(id,byOwner){
+  const b=S.books.find(x=>x.id===id); if(!b)return;
+  const who=byOwner?uname(S.me):'автоматически (24 ч)';
+  chatWith(b.reservedBy,true,`Бронь книги «${b.title}» снята ${byOwner?'владельцем':'по истечении срока'} (${who}). Книга снова свободна — поспешите 🙂`);
+  b.status='free'; b.reservedBy=null; b.reservedAt=null; save();
+  renderProfile();
+}
+function expireReservations(){
+  const DAY=24*60*60*1000;
+  S.books.forEach(b=>{
+    if(b.status==='reserved'&&b.reservedAt&&Date.now()-b.reservedAt>DAY){
+      b.status='free'; b.reservedBy=null; b.reservedAt=null;
+    }
+  });
+  save();
+}
 function renderProfile(){
   const myBooks=S.books.filter(b=>b.owner===S.me);
   const myRes=S.books.filter(b=>b.reservedBy===S.me&&b.status==='reserved');
@@ -400,7 +419,7 @@ function renderProfile(){
       <button class="btn btn-terra" style="width:100%" onclick="addBook()">Отдать в круговорот</button>
     </div>
     ${myBooks.map(b=>`<div class="divider"></div><div class="row"><div><b>${b.title}</b> · ${b.author}<br><span class="meta">📍 ${PTS[b.pt].name} · ${b.status==='free'?'свободна':'забронирована: '+uname(b.reservedBy)}</span></div>
-      ${b.status==='reserved'?`<div class="rowbt"><button class="btn btn-green btn-sm" onclick="acceptRes('${b.id}')">Принять</button><button class="btn btn-ghost btn-sm" onclick="declineRes('${b.id}')">Отклонить</button></div>`:''}</div>`).join('')||'<div class="empty">Пока ни одной книги. Добавьте первую!</div>'}
+      ${b.status==='reserved'?`<div class="rowbt"><button class="btn btn-green btn-sm" onclick="acceptRes('${b.id}')">Принять</button><button class="btn btn-ghost btn-sm" onclick="releaseRes('${b.id}',true)">Снять бронь</button></div>`:''}</div>`).join('')||'<div class="empty">Пока ни одной книги. Добавьте первую!</div>'}
     </div>
 
     ${incoming.length?`<div class="card"><h3>Заявки на мои книги</h3>
