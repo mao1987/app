@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>BookFlow — приложение</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+:root{
+  --bg:#FAF5EF; --card:#FFF9F2; --ink:#2B2622; --muted:#7A7069;
+  --terra:#C4633F; --terra-d:#A94F2F; --green:#2F5D50; --green-d:#24483E;
+  --line:#E8DED2; --ok:#3E7D5B; --warn:#C98A2E;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--ink);font-size:16px;line-height:1.55}
+button{font-family:inherit;cursor:pointer;border:none}
+input,textarea,select{width:100%;padding:12px 14px;margin-bottom:10px;border:1px solid var(--line);border-radius:10px;font-size:15px;background:#fff;font-family:inherit}
+input:focus,textarea:focus,select:focus{outline:2px solid var(--terra);border-color:transparent}
+.btn{display:inline-block;padding:12px 20px;border-radius:10px;font-weight:600;font-size:15px;text-decoration:none;transition:.2s}
+.btn-terra{background:var(--terra);color:#fff}
+.btn-terra:hover{background:var(--terra-d)}
+.btn-ghost{background:#fff;color:var(--ink);border:1.5px solid var(--ink)}
+.btn-ghost:hover{background:var(--ink);color:#fff}
+.btn-sm{padding:7px 14px;font-size:13px;border-radius:8px}
+.btn-green{background:var(--green);color:#fff}
+.btn-green:hover{background:var(--green-d)}
+.badge{font-size:12px;padding:3px 10px;border-radius:20px;white-space:nowrap}
+.b-free{background:#E4EEE9;color:var(--green)}
+.b-res{background:#F6E8D4;color:var(--warn)}
+.b-mine{background:#EDE7F8;color:#6B4FA3}
+
+/* AUTH */
+#auth{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.auth-box{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:34px 28px;max-width:400px;width:100%;box-shadow:0 14px 40px rgba(43,38,34,.1)}
+.auth-box h1{font-family:Georgia,serif;font-size:30px;margin-bottom:6px}
+.auth-box h1 span{color:var(--terra)}
+.auth-box .sub{color:var(--muted);margin-bottom:22px;font-size:14px}
+.auth-box .demo{margin-top:14px;text-align:center;font-size:14px;color:var(--muted)}
+
+/* APP SHELL */
+#app{display:none;min-height:100vh;padding-bottom:76px}
+.topbar{position:sticky;top:0;background:rgba(250,245,239,.96);backdrop-filter:blur(6px);z-index:20;border-bottom:1px solid var(--line)}
+.topbar .in{max-width:760px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;padding:12px 16px}
+.topbar .logo{font-family:Georgia,serif;font-size:21px;font-weight:700}
+.topbar .logo span{color:var(--terra)}
+.topbar .who{font-size:13px;color:var(--muted);text-align:right}
+.tabbar{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--line);display:flex;z-index:20}
+.tabbar button{flex:1;padding:9px 2px 11px;background:none;font-size:11px;color:var(--muted);display:flex;flex-direction:column;gap:2px;align-items:center}
+.tabbar button .ic{font-size:20px}
+.tabbar button.on{color:var(--terra);font-weight:700}
+.page{max-width:760px;margin:0 auto;padding:20px 16px 30px}
+h2.pg{font-family:Georgia,serif;font-size:24px;margin-bottom:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:12px}
+.card h3{font-size:17px;margin-bottom:4px}
+.card .meta{color:var(--muted);font-size:13.5px}
+.row{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.rowbt{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.muted{color:var(--muted)}
+.small{font-size:13.5px}
+.divider{border-top:1px dashed var(--line);margin:12px 0}
+
+/* search */
+.searchbar{margin-bottom:14px}
+.filterline{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.chip{padding:6px 14px;border:1px solid var(--line);border-radius:20px;background:#fff;font-size:13px}
+.chip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+
+/* chat */
+.chatbox{border:1px solid var(--line);border-radius:14px;background:#fff;padding:14px;max-height:340px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;margin-top:12px}
+.msg{max-width:78%;padding:9px 13px;border-radius:14px;font-size:14.5px}
+.msg.me{align-self:flex-end;background:var(--terra);color:#fff;border-bottom-right-radius:4px}
+.msg.them{align-self:flex-start;background:#F1EAE0;border-bottom-left-radius:4px}
+.typing{font-size:12px;color:var(--muted);font-style:italic}
+
+/* map */
+#map{height:420px;border-radius:14px;border:1px solid var(--line);z-index:1}
+.maplegend{display:flex;gap:14px;margin:10px 2px;font-size:13px;color:var(--muted);align-items:center}
+.dot{width:11px;height:11px;border-radius:50%;display:inline-block;margin-right:5px}
+
+/* requests */
+.reqform{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:16px}
+
+/* news */
+.news{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:14px}
+.news .date{font-size:12.5px;color:var(--muted);margin-bottom:6px}
+.news h3{font-size:17px;margin-bottom:6px}
+.news .tagline{font-size:12px;color:var(--terra);font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px}
+
+/* forms inline */
+.frm{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin-top:14px;display:none}
+.frm.open{display:block}
+.frm h3{margin-bottom:10px}
+.danger{color:#A93B2F;font-size:13px;text-decoration:underline;cursor:pointer;background:none}
+.hint{font-size:13px;color:var(--muted);margin-top:10px}
+.empty{text-align:center;color:var(--muted);padding:30px 10px;font-size:14.5px}
+</style>
+</head>
+<body>
+
+<!-- ЭКРАН ВХОДА -->
+<div id="auth">
+  <div class="auth-box">
+    <h1>Book<span>Flow</span></h1>
+    <p class="sub">Книги, которые путешествуют. Пилот в Алматы.</p>
+    <div id="regForm">
+      <input id="regName" placeholder="Имя">
+      <input id="regPhone" placeholder="Телефон: +7 ___ ___-__-__">
+      <button class="btn btn-terra" style="width:100%" onclick="register()">Зарегистрироваться</button>
+      <p class="demo">Уже с нами? <a href="#" onclick="showLogin();return false">Войти</a> · <a href="#" onclick="demoLogin();return false"><b>Войти как Асель (демо)</b></a></p>
+    </div>
+    <div id="loginForm" style="display:none">
+      <input id="logPhone" placeholder="Телефон, указанный при регистрации">
+      <button class="btn btn-terra" style="width:100%" onclick="login()">Войти</button>
+      <p class="demo">Впервые здесь? <a href="#" onclick="showReg();return false">Зарегистрироваться</a></p>
+    </div>
+    <p class="hint">Демо-режим: за Асель уже числятся книги и бронь — можно сразу всё потрогать.</p>
+  </div>
+</div>
+
+<!-- ПРИЛОЖЕНИЕ -->
+<div id="app">
+  <div class="topbar"><div class="in">
+    <div class="logo">Book<span>Flow</span></div>
+    <div class="who" id="whoami"></div>
+  </div></div>
+
+  <div class="page" id="pageSearch"></div>
+  <div class="page" id="pageMap" style="display:none"></div>
+  <div class="page" id="pageReq" style="display:none"></div>
+  <div class="page" id="pageChat" style="display:none"></div>
+  <div class="page" id="pageNews" style="display:none"></div>
+  <div class="page" id="pageProfile" style="display:none"></div>
+
+  <div class="tabbar">
+    <button id="tSearch" class="on" onclick="go('Search')"><span class="ic">🔎</span>Поиск</button>
+    <button id="tMap" onclick="go('Map')"><span class="ic">📍</span>Карта</button>
+    <button id="tReq" onclick="go('Req')"><span class="ic">🙋</span>Ищу</button>
+    <button id="tChat" onclick="go('Chat')"><span class="ic">💬</span>Чаты</button>
+    <button id="tNews" onclick="go('News')"><span class="ic">📰</span>Новости</button>
+    <button id="tProfile" onclick="go('Profile')"><span class="ic">👤</span>Профиль</button>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+/* ================= ДАННЫЕ ================= */
+const PTS={
+  ardaq:{name:'Кафе «Ардақ»',addr:'пр. Абая, 15',lat:43.2401,lng:76.8893},
+  lib:{name:'Библиотека им. Асафьева',addr:'ул. Панфилова, 42',lat:43.2564,lng:76.9285},
+  park:{name:'Парк 28 гвардейцев',addr:'скамейки у фонтана',lat:43.2650,lng:76.9500}
+};
+const DEMO_USERS=[
+  {id:'u_asel',name:'Асель',phone:'+7 777 111-22-33'},
+  {id:'u_dana',name:'Дана',phone:'+7 701 555-44-66'}
+];
+const REPLIES=['Привет! Да, книга свободна — забронировать?','Здравствуйте! Приходите, оставила в точке, ID внутри обложки 🙂','Отличный выбор! Могу оставить в кафе «Ардақ» завтра.','Привет! Обсудим на встрече клуба? 14 декабря в 18:00.'];
+
+const NEWS=[
+  {d:'20 ноября 2026',t:'Встреча клуба: современная казахская проза',x:'14 декабря в 18:00 собираемся в кафе «Ардақ». Обсуждаем сборник рассказов молодых авторов. Приходите, даже если не дочитали — обмен мнениями важнее регламента.',g:'Клуб'},
+  {d:'18 ноября 2026',t:'Новая точка в парке 28 гвардейцев',x:'У фонтана установили шкаф BookFlow: 40 мест, защита от дождя, статус «проверено» в приложении. Загрузили первые 12 книг — заходите посмотреть.',g:'Точки'},
+  {d:'12 ноября 2026',t:'Книжное кольцо: детективы Агаты Кристи',x:'Запускаем формат «кольца»: одна книга едет по цепочке из трёх человек, каждый передаёт её следующему с запиской. Старт 18 декабря в библиотеке.',g:'Клуб'}
+];
+
+let S=null;
+function seed(){
+  return {
+    users:{u_asel:{id:'u_asel',name:'Асель',phone:'+7 777 111-22-33'},u_dana:{id:'u_dana',name:'Дана',phone:'+7 701 555-44-66'}},
+    me:null,
+    books:[
+      {id:'b1',title:'«Абай»',author:'Мухтар Ауэзов',state:'отличное',pt:'ardaq',owner:'u_asel',status:'free'},
+      {id:'b2',title:'«Плаха»',author:'Чингиз Айтматов',state:'хорошее',pt:'lib',owner:'u_dana',status:'free'},
+      {id:'b3',title:'«Двенадцать»',author:'Мұрат Әуелбай',state:'с потёртостями',pt:'park',owner:'u_asel',status:'free'},
+      {id:'b4',title:'«Маленький принц»',author:'Антуан де Сент-Экзюпери',state:'отличное',pt:'ardaq',owner:'u_dana',status:'free'},
+      {id:'b5',title:'«Зуля»',author:'Дулат Исабеков',state:'хорошее',pt:'lib',owner:'u_asel',status:'free'}
+    ],
+    chats:[],
+    requests:[
+      {id:'r1',user:'u_dana',text:'Ищу «К Noah's Ark» или любую прозу о степи для клуба в декабре.',date:'19.11'},
+      {id:'r2',user:'u_asel',text:'Ищу детскую литературу: сказки народов Казахстана, для чтения вслух.',date:'17.11'}
+    ]
+  };
+}
+function load(){try{return JSON.parse(localStorage.getItem('bookflow_v1'))}catch(e){return null}}
+function save(){localStorage.setItem('bookflow_v1',JSON.stringify(S))}
+function uid(){return Math.random().toString(36).slice(2,9)}
+S=load()||seed(); save();
+
+/* ================= АВТОРИЗАЦИЯ ================= */
+function showLogin(){document.getElementById('regForm').style.display='none';document.getElementById('loginForm').style.display='block'}
+function showReg(){document.getElementById('regForm').style.display='block';document.getElementById('loginForm').style.display='none'}
+function register(){
+  const n=document.getElementById('regName').value.trim(),p=document.getElementById('regPhone').value.trim();
+  if(!n||!p){alert('Укажите имя и телефон');return}
+  const id='u_'+uid(); S.users[id]={id,name:n,phone:p}; S.me=id; save(); enterApp();
+}
+function login(){
+  const p=document.getElementById('logPhone').value.trim();
+  const u=Object.values(S.users).find(x=>x.phone===p);
+  if(!u){alert('Пользователь с таким телефоном не найден. Зарегистрируйтесь.');return}
+  S.me=u.id; save(); enterApp();
+}
+function demoLogin(){S.me='u_asel';save();enterApp()}
+function logout(){S.me=null;save();location.reload()}
+function me(){return S.users[S.me]}
+function uname(id){return S.users[id]?S.users[id].name:'Неизвестный'}
+
+function enterApp(){
+  document.getElementById('auth').style.display='none';
+  document.getElementById('app').style.display='block';
+  document.getElementById('whoami').innerHTML='<b>'+me().name+'</b><br>'+me().phone;
+  go('Search');
+}
+
+/* ================= НАВИГАЦИЯ ================= */
+let cur='Search';
+function go(tab){
+  cur=tab;
+  ['Search','Map','Req','Chat','News','Profile'].forEach(t=>{
+    document.getElementById('page'+t).style.display=t===tab?'block':'none';
+    document.getElementById('t'+t).classList.toggle('on',t===tab);
+  });
+  if(tab==='Search')renderSearch();
+  if(tab==='Map')renderMap();
+  if(tab==='Req')renderReq();
+  if(tab==='Chat')renderChat();
+  if(tab==='News')renderNews();
+  if(tab==='Profile')renderProfile();
+}
+
+/* ================= ПОИСК ================= */
+let q='',fStatus='all';
+function renderSearch(){
+  const list=S.books.filter(b=>{
+    const s=(b.title+' '+b.author).toLowerCase();
+    if(q&&!s.includes(q.toLowerCase()))return false;
+    if(fStatus==='free'&&b.status!=='free')return false;
+    if(fStatus==='mine'&&b.owner!==S.me)return false;
+    return true;
+  });
+  document.getElementById('pageSearch').innerHTML=`
+    <h2 class="pg">Поиск книг</h2>
+    <div class="searchbar"><input id="q" placeholder="Название или автор…" value="${q.replace(/"/g,'&quot;')}" oninput="q=this.value;renderSearch();setTimeout(()=>document.getElementById('q').focus(),0)"></div>
+    <div class="filterline">
+      <span class="chip ${fStatus==='all'?'on':''}" onclick="fStatus='all';renderSearch()">Все</span>
+      <span class="chip ${fStatus==='free'?'on':''}" onclick="fStatus='free';renderSearch()">Свободные</span>
+      <span class="chip ${fStatus==='mine'?'on':''}" onclick="fStatus='mine';renderSearch()">Мои</span>
+    </div>
+    ${list.length?list.map(bookCard).join(''):'<div class="empty">Ничего не нашлось. Попробуйте другой запрос или оставьте заявку во вкладке «Ищу».</div>'}
+  `;
+}
+function bookCard(b){
+  const st=b.status==='free'?'<span class="badge b-free">свободна</span>':'<span class="badge b-res">забронирована · '+uname(b.reservedBy)+'</span>';
+  const own=b.owner===S.me?'<span class="badge b-mine">моя</span>':'';
+  const act=b.owner===S.me?'':(b.status==='free'
+    ?`<button class="btn btn-terra btn-sm" onclick="reserve('${b.id}')">Забронировать</button>`
+    :(b.reservedBy===S.me?'<span class="badge b-res">ваша бронь</span>':''));
+  return `<div class="card">
+    <div class="row"><h3>${b.title}</h3>${st}${own}</div>
+    <div class="meta">${b.author} · состояние: ${b.state}</div>
+    <div class="meta">📍 ${PTS[b.pt].name}, ${PTS[b.pt].addr} · владелец: ${uname(b.owner)}</div>
+    <div class="rowbt">
+      <button class="btn btn-ghost btn-sm" onclick="openChat('${b.owner}')">Написать</button>
+      <button class="btn btn-ghost btn-sm" onclick="go('Map');highlight('${b.id}')">На карте</button>
+      ${act}
+    </div>
+  </div>`;
+}
+function reserve(id){
+  const b=S.books.find(x=>x.id===id); if(!b)return;
+  b.status='reserved'; b.reservedBy=S.me; save();
+  chatWith(b.owner,true,b.title+' — заявка на бронь');
+  alert('Заявка отправлена! Владелец увидит её в профиле.'); go(cur==='Map'?'Map':'Search');
+}
+
+/* ================= КАРТА ================= */
+let map=null,markers={},hl=null;
+function renderMap(){
+  const html=`<h2 class="pg">Точки на карте</h2>
+  <div class="maplegend">
+    <span><span class="dot" style="background:#3E7D5B"></span>есть свободные книги</span>
+    <span><span class="dot" style="background:#C98A2E"></span>все забронированы</span>
+    <span><span class="dot" style="background:#8B8378"></span>пусто</span>
+  </div>
+  <div id="map"></div>`;
+  document.getElementById('pageMap').innerHTML=html;
+  if(!map){
+    map=L.map('map').setView([43.252,76.915],12);
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(map);
+  }
+  setTimeout(()=>map.invalidateSize(),50);
+  Object.values(markers).forEach(m=>map.removeLayer(m)); markers={};
+  Object.entries(PTS).forEach(([k,p])=>{
+    const bs=S.books.filter(b=>b.pt===k);
+    const free=bs.filter(b=>b.status==='free').length;
+    const color=free>0?'#3E7D5B':(bs.length?'#C98A2E':'#8B8378');
+    const rows=bs.length?bs.map(b=>`<div style="margin:4px 0"><b>${b.title}</b> · ${b.author}<br><span class="badge ${b.status==='free'?'b-free':'b-res'}">${b.status==='free'?'свободна':'забронирована'}</span> ${b.status==='free'&&b.owner!==S.me?`<button class="btn btn-terra btn-sm" style="margin-left:6px" onclick="reserve('${b.id}');renderMap()">Забронировать</button>`:''}</div>`).join(''):'<i>Пока пусто</i>';
+    const m=L.marker([p.lat,p.lng]).addTo(map).bindPopup(`<b>${p.name}</b><br><span style="color:#777">${p.addr}</span><hr style="border:none;border-top:1px dashed #ccc;margin:6px 0">${rows}`);
+    markers[k]=m;
+  });
+  if(hl){const p=PTS[S.books.find(b=>b.id===hl)?.pt];if(p){map.setView([p.lat,p.lng],14);markers[S.books.find(b=>b.id===hl).pt].openPopup()}hl=null}
+}
+function highlight(id){hl=id}
+
+/* ================= ЗАПРОСЫ «ИЩУ» ================= */
+function renderReq(){
+  const mine=S.requests.filter(r=>r.user===S.me);
+  const others=S.requests.filter(r=>r.user!==S.me);
+  document.getElementById('pageReq').innerHTML=`
+    <h2 class="pg">Запросы «Ищу книгу»</h2>
+    <div class="reqform">
+      <h3>Оставить заявку</h3>
+      <input id="reqText" placeholder="Например: ищу «Плаху» Айтматова, хорошее состояние">
+      <button class="btn btn-terra" onclick="addReq()">Опубликовать</button>
+    </div>
+    ${others.length?'<h3 style="margin-bottom:10px">Запросы участников</h3>'+others.map(r=>`
+      <div class="card"><div class="row"><h3>${uname(r.user)} <span class="muted small">· ${r.date}</span></h3></div>
+      <p>${r.text}</p><div class="rowbt"><button class="btn btn-ghost btn-sm" onclick="openChat('${r.user}')">Написать</button></div></div>`).join(''):'<div class="empty">Пока никто ничего не ищет.</div>'}
+    ${mine.length?'<h3 style="margin:18px 0 10px">Мои запросы</h3>'+mine.map(r=>`
+      <div class="card"><div class="row"><p>${r.text}</p><button class="btn btn-ghost btn-sm" onclick="delReq('${r.id}')">Удалить</button></div></div>`).join(''):''}
+  `;
+}
+function addReq(){
+  const t=document.getElementById('reqText').value.trim();
+  if(!t){alert('Опишите, какую книгу ищете');return}
+  S.requests.unshift({id:uid(),user:S.me,text:t,date:new Date().toLocaleDateString('ru-RU',{day:'2-digit',month:'2-digit'})});
+  save(); renderReq();
+}
+function delReq(id){S.requests=S.requests.filter(r=>r.id!==id);save();renderReq()}
+
+/* ================= ЧАТЫ ================= */
+function chatKey(a,b){return [a,b].sort().join('|')}
+function chatWith(user,needFirstMsg,text){
+  if(user===S.me){alert('Это ваша книга 🙂');return}
+  let c=S.chats.find(x=>x.key===chatKey(S.me,user));
+  if(!c){c={key:chatKey(S.me,user),with:user,msgs:[]};S.chats.push(c)}
+  if(needFirstMsg&&c.msgs.length===0)c.msgs.push({from:S.me,text:text||'Здравствуйте! Интересует ваша книга.',t:time()});
+  save(); go('Chat');
+}
+function time(){return new Date().toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})}
+function renderChat(){
+  const chats=S.chats.slice().sort((a,b)=>(b.msgs.at(-1)?.t||'')<(a.msgs.at(-1)?.t||'')?1:-1);
+  let html='<h2 class="pg">Чаты</h2>';
+  if(!chats.length)html+='<div class="empty">Пока нет переписки. Найдите книгу и напишите владельцу.</div>';
+  else html+=chats.map(c=>`<div class="card" onclick="openFull('${c.with}')" style="cursor:pointer">
+    <div class="row"><h3>${uname(c.with)}</h3><span class="muted small">${c.msgs.at(-1)?c.msgs.at(-1).t:''}</span></div>
+    <div class="meta">${c.msgs.at(-1)?(c.msgs.at(-1).from===S.me?'Вы: ':'')+c.msgs.at(-1).text:''}</div></div>`).join('');
+  html+='<div id="fullChat"></div>';
+  document.getElementById('pageChat').innerHTML=html;
+}
+function openFull(user){
+  const c=S.chats.find(x=>x.with===user);
+  document.getElementById('fullChat').innerHTML=`
+    <div class="divider"></div>
+    <div class="card" style="background:#fff">
+      <div class="row"><h3>Диалог с ${uname(user)}</h3><button class="btn btn-ghost btn-sm" onclick="renderChat()">Свернуть</button></div>
+      <div class="chatbox" id="box">${c.msgs.map(m=>`<div class="msg ${m.from===S.me?'me':'them'}">${m.text}<div style="font-size:11px;opacity:.7;margin-top:2px">${m.t}</div></div>`).join('')}</div>
+      <input id="msgIn" placeholder="Сообщение…" style="margin-top:12px" onkeydown="if(event.key==='Enter')sendMsg('${user}')">
+      <button class="btn btn-terra" style="width:100%" onclick="sendMsg('${user}')">Отправить</button>
+    </div>`;
+  const box=document.getElementById('box');box.scrollTop=box.scrollHeight;
+}
+function sendMsg(user){
+  const c=S.chats.find(x=>x.with===user);
+  const inp=document.getElementById('msgIn');const t=inp.value.trim();
+  if(!t)return; c.msgs.push({from:S.me,text:t,t:time()}); save();
+  openFull(user);
+  setTimeout(()=>{
+    c.msgs.push({from:user,text:REPLIES[Math.floor(Math.random()*REPLIES.length)],t:time()});
+    save(); if(cur==='Chat')openFull(user);
+  },1200+Math.random()*800);
+}
+
+/* ================= НОВОСТИ ================= */
+function renderNews(){
+  document.getElementById('pageNews').innerHTML=`<h2 class="pg">Новости клуба</h2>`+
+    NEWS.map(n=>`<div class="news"><div class="tagline">${n.g}</div><div class="date">${n.d}</div><h3>${n.t}</h3><p>${n.x}</p></div>`).join('');
+}
+
+/* ================= ПРОФИЛЬ ================= */
+function renderProfile(){
+  const myBooks=S.books.filter(b=>b.owner===S.me);
+  const myRes=S.books.filter(b=>b.reservedBy===S.me&&b.status==='reserved');
+  const incoming=S.books.filter(b=>b.owner===S.me&&b.status==='reserved');
+  document.getElementById('pageProfile').innerHTML=`
+    <h2 class="pg">Профиль</h2>
+    <div class="card"><div class="row"><div><h3>${me().name}</h3><div class="meta">${me().phone}</div></div>
+    <button class="btn btn-ghost btn-sm" onclick="logout()">Выйти</button></div></div>
+
+    <div class="card"><div class="row"><h3>Мои книги (${myBooks.length})</h3>
+    <button class="btn btn-terra btn-sm" onclick="document.getElementById('addBook').classList.toggle('open')">+ Добавить</button></div>
+    <div class="frm" id="addBook">
+      <input id="bkT" placeholder="Название"><input id="bkA" placeholder="Автор">
+      <select id="bkS"><option>отличное</option><option>хорошее</option><option>с потёртостями</option></select>
+      <select id="bkP"><option value="ardaq">Кафе «Ардақ»</option><option value="lib">Библиотека им. Асафьева</option><option value="park">Парк 28 гвардейцев</option></select>
+      <button class="btn btn-terra" style="width:100%" onclick="addBook()">Отдать в круговорот</button>
+    </div>
+    ${myBooks.map(b=>`<div class="divider"></div><div class="row"><div><b>${b.title}</b> · ${b.author}<br><span class="meta">📍 ${PTS[b.pt].name} · ${b.status==='free'?'свободна':'забронирована: '+uname(b.reservedBy)}</span></div>
+      ${b.status==='reserved'?`<div class="rowbt"><button class="btn btn-green btn-sm" onclick="acceptRes('${b.id}')">Принять</button><button class="btn btn-ghost btn-sm" onclick="declineRes('${b.id}')">Отклонить</button></div>`:''}</div>`).join('')||'<div class="empty">Пока ни одной книги. Добавьте первую!</div>'}
+    </div>
+
+    ${incoming.length?`<div class="card"><h3>Заявки на мои книги</h3>
+      ${incoming.map(b=>`<div class="divider"></div><div class="row"><div><b>${b.title}</b><br><span class="meta">хочет забрать: ${uname(b.reservedBy)}</span></div>
+      <div class="rowbt"><button class="btn btn-green btn-sm" onclick="acceptRes('${b.id}')">Принять</button><button class="btn btn-ghost btn-sm" onclick="declineRes('${b.id}')">Отклонить</button></div></div>`).join('')}</div>`:''}
+
+    ${myRes.length?`<div class="card"><h3>Мои брони</h3>
+      ${myRes.map(b=>`<div class="divider"></div><div class="row"><div><b>${b.title}</b> · ${b.author}<br><span class="meta">📍 ${PTS[b.pt].name} · владелец: ${uname(b.owner)}</span></div>
+      <button class="btn btn-ghost btn-sm" onclick="cancelRes('${b.id}')">Отменить</button></div>`).join('')}</div>`:''}
+
+    <p class="hint" style="text-align:center;margin-top:24px"><button class="danger" onclick="if(confirm('Сбросить демо-данные?')){localStorage.removeItem('bookflow_v1');location.reload()}">Сбросить демо-данные</button></p>
+  `;
+}
+function addBook(){
+  const t=document.getElementById('bkT').value.trim(),a=document.getElementById('bkA').value.trim();
+  if(!t||!a){alert('Укажите название и автора');return}
+  S.books.push({id:uid(),title:t,author:a,state:document.getElementById('bkS').value,pt:document.getElementById('bkP').value,owner:S.me,status:'free'});
+  save();renderProfile();
+}
+function acceptRes(id){
+  const b=S.books.find(x=>x.id===id);
+  chatWith(b.reservedBy,true,`Книга «${b.title}» ваша! Заберите в точке «${PTS[b.pt].name}», ID на форзаце.`);
+  alert('Бронь подтверждена. Читателю отправлено сообщение.');
+  renderProfile();
+}
+function declineRes(id){
+  const b=S.books.find(x=>x.id===id);
+  chatWith(b.reservedBy,true,`Извините, «${b.title}» уже обещана другому читателю.`);
+  b.status='free';b.reservedBy=null;save();renderProfile();
+}
+function cancelRes(id){
+  const b=S.books.find(x=>x.id===id);
+  b.status='free';b.reservedBy=null;save();
+  chatWith(b.owner,true,'Отменил(а) бронь, книга снова свободна.');
+  renderProfile();
+}
+</script>
+</body>
+</html>
