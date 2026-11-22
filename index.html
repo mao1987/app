@@ -328,6 +328,11 @@ function addReq(){
 function delReq(id){S.requests=S.requests.filter(r=>r.id!==id);save();renderReq()}
 
 /* ================= ЧАТЫ ================= */
+function openChat(user){
+  if(user===S.me){alert('Это ваша книга 🙂');return}
+  chatWith(user,true);
+  setTimeout(()=>openFull(user),50);
+}
 function chatKey(a,b){return [a,b].sort().join('|')}
 function chatWith(user,needFirstMsg,text){
   if(user===S.me){alert('Это ваша книга 🙂');return}
