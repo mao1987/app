@@ -336,7 +336,7 @@ function delReq(id){S.requests=S.requests.filter(r=>r.id!==id);save();renderReq(
 /* ================= УВЕДОМЛЕНИЯ ================= */
 function getNotifs(){
   const out=[];
-  S.books.filter(b=>b.owner===S.me&&b.status==='reserved'&&b.reservedBy!==S.me)
+  S.books.filter(b=>b.owner===S.me&&b.status==='reserved'&&!b.accepted&&b.reservedBy!==S.me)
     .forEach(b=>out.push({id:'res_'+b.id,ic:'📦',text:`${uname(b.reservedBy)} хочет забронировать вашу книгу «${b.title}»`,go:'Profile'}));
   S.chats.forEach(c=>{
     const last=c.msgs[c.msgs.length-1];
@@ -371,7 +371,8 @@ function chatWith(user,needFirstMsg,text){
   if(user===S.me){alert('Это ваша книга 🙂');return}
   let c=S.chats.find(x=>x.key===chatKey(S.me,user));
   if(!c){c={key:chatKey(S.me,user),with:user,msgs:[]};S.chats.push(c)}
-  if(needFirstMsg&&c.msgs.length===0)c.msgs.push({from:S.me,text:text||'Здравствуйте! Интересует ваша книга.',t:time()});
+  if(text){c.msgs.push({from:S.me,text:text,t:time()})}
+  else if(needFirstMsg&&c.msgs.length===0){c.msgs.push({from:S.me,text:'Здравствуйте! Интересует ваша книга.',t:time()})}
   save(); go('Chat');
 }
 function time(){return new Date().toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})}
@@ -418,14 +419,14 @@ function renderNews(){
 function releaseRes(id,byOwner){
   const b=S.books.find(x=>x.id===id); if(!b)return;
   chatWith(b.reservedBy,true,`Бронь книги «${b.title}» снята ${byOwner?'владельцем':'по истечении срока'} — книга снова свободна, поспешите 🙂`);
-  b.status='free'; b.reservedBy=null; b.reservedAt=null; save();
+  b.status='free'; b.reservedBy=null; b.reservedAt=null; b.accepted=null; save();
   renderProfile();
 }
 function expireReservations(){
   const DAY=24*60*60*1000;
   S.books.forEach(b=>{
     if(b.status==='reserved'&&b.reservedAt&&Date.now()-b.reservedAt>DAY){
-      b.status='free'; b.reservedBy=null; b.reservedAt=null;
+      b.status='free'; b.reservedBy=null; b.reservedAt=null; b.accepted=null;
     }
   });
   save();
@@ -449,7 +450,7 @@ function renderProfile(){
       <button class="btn btn-terra" style="width:100%" onclick="addBook()">Отдать в круговорот</button>
     </div>
     ${myBooks.map(b=>`<div class="divider"></div><div class="row"><div><b>${b.title}</b> · ${b.author}<br><span class="meta">📍 ${PTS[b.pt].name} · ${b.status==='free'?'свободна':'забронирована: '+uname(b.reservedBy)}</span></div>
-      ${b.status==='reserved'?`<div class="rowbt"><button class="btn btn-green btn-sm" onclick="acceptRes('${b.id}')">Принять</button><button class="btn btn-ghost btn-sm" onclick="releaseRes('${b.id}',true)">Снять бронь</button></div>`:''}</div>`).join('')||'<div class="empty">Пока ни одной книги. Добавьте первую!</div>'}
+      ${b.status==='reserved'?(b.accepted?`<span class="badge b-free">✅ бронь подтверждена</span>`:`<div class="rowbt"><button class="btn btn-green btn-sm" onclick="acceptRes('${b.id}')">Принять</button><button class="btn btn-ghost btn-sm" onclick="releaseRes('${b.id}',true)">Снять бронь</button></div>`):''}</div>`).join('')||'<div class="empty">Пока ни одной книги. Добавьте первую!</div>'}
     </div>
 
     ${myRes.length?`<div class="card"><h3>Мои брони</h3>
@@ -467,13 +468,13 @@ function addBook(){
 }
 function acceptRes(id){
   const b=S.books.find(x=>x.id===id);
+  b.accepted=true; save();
   chatWith(b.reservedBy,true,`Книга «${b.title}» ваша! Заберите в точке «${PTS[b.pt].name}», ID на форзаце.`);
-  alert('Бронь подтверждена. Читателю отправлено сообщение.');
   renderProfile();
 }
 function cancelRes(id){
   const b=S.books.find(x=>x.id===id);
-  b.status='free'; b.reservedBy=null; b.reservedAt=null; save();
+  b.status='free'; b.reservedBy=null; b.reservedAt=null; b.accepted=null; save();
   chatWith(b.owner,true,'Отменил(а) бронь, книга снова свободна.');
   renderProfile();
 }
